@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🚗 Car Price Predictor</title>
+  <!-- Google Font & Font Awesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <!-- external CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <!-- for local testing, uncomment next line and comment the one above -->
+  <!-- <link rel="stylesheet" href="style.css" /> -->
+</head>
+<body>
+  <div class="background"></div>
+
+  <div class="container">
+    <div class="card">
+      <h1>
+        <i class="fas fa-car"></i> Car Price Predictor
+      </h1>
+      <p class="subtitle">
+        <i class="fas fa-chart-line" style="margin-right: 8px;"></i>
+        Get an estimated market price for your car instantly.
+      </p>
+
+      <form action="/predict" method="POST" id="predictForm">
+        <!-- Car Model -->
+        <div class="input-group">
+          <label><i class="fas fa-tag"></i> Car Model</label>
+          <i class="fas fa-car-side icon-left"></i>
+          <input type="text" name="name" id="carModel" placeholder="Hyundai Santro Xing" required />
+        </div>
+
+        <!-- Company -->
+        <div class="input-group">
+          <label><i class="fas fa-building"></i> Company</label>
+          <i class="fas fa-industry icon-left"></i>
+          <input type="text" name="company" id="carCompany" placeholder="Hyundai" required />
+        </div>
+
+        <!-- row: year + kms -->
+        <div class="row-duo">
+          <div class="input-group">
+            <label><i class="fas fa-calendar-alt"></i> Year</label>
+            <i class="fas fa-calendar icon-left"></i>
+            <input type="number" name="year" id="carYear" placeholder="2018" required />
+          </div>
+          <div class="input-group">
+            <label><i class="fas fa-tachometer-alt"></i> Kilometers</label>
+            <i class="fas fa-road icon-left"></i>
+            <input type="number" name="kms" id="carKms" placeholder="45000" required />
+          </div>
+        </div>
+
+        <!-- Fuel Type -->
+        <div class="input-group">
+          <label><i class="fas fa-gas-pump"></i> Fuel Type</label>
+          <i class="fas fa-fire icon-left"></i>
+          <select name="fuel" id="carFuel">
+            <option value="Petrol">Petrol</option>
+            <option value="Diesel">Diesel</option>
+            <option value="CNG">CNG</option>
+          </select>
+        </div>
+
+        <button type="submit">
+          <i class="fas fa-calculator"></i> Predict Price
+        </button>
+      </form>
+
+      <!-- Show demo only before prediction -->
+      {% if not prediction %}
+      <div class="result" id="resultDemo">
+        <h2><i class="fas fa-credit-card" style="margin-right: 8px;"></i> Estimated Price</h2>
+        <div class="price">
+          <i class="fas fa-rupee-sign"></i> <span id="priceValue">4,85,000</span>
+        </div>
+        <div class="sub-price">
+          <i class="fas fa-clock" style="margin-right: 6px;"></i> based on current market trends
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Real prediction from ML model -->
+      {% if prediction %}
+      <div class="result">
+        <h2><i class="fas fa-credit-card" style="margin-right: 8px;"></i> Estimated Price</h2>
+        <div class="price">{{ prediction }}</div>
+        <div class="sub-price">
+          <i class="fas fa-clock" style="margin-right: 6px;"></i> based on current market trends
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- interactive enhancements -->
+  <script>
+    (function() {
+      'use strict';
+
+      const resultDemo = document.getElementById('resultDemo');
+      const priceSpan = document.getElementById('priceValue');
+      const predictForm = document.getElementById('predictForm');
+      
+      const carModel = document.getElementById('carModel');
+      const carCompany = document.getElementById('carCompany');
+      const carYear = document.getElementById('carYear');
+      const carKms = document.getElementById('carKms');
+      const carFuel = document.getElementById('carFuel');
+      
+      const allInputs = document.querySelectorAll('input, select');
+      const isDemoMode = !!resultDemo;
+
+      // helper: format number with commas (Indian style)
+      function formatPrice(num) {
+        return Math.round(num).toLocaleString('en-IN');
+      }
+
+      // calculate demo price based on fields
+      function calculatePrice() {
+        if (!isDemoMode) return null;
+        
+        let basePrice = 485000;
+        
+        const yearVal = parseInt(carYear?.value);
+        const kmsVal = parseInt(carKms?.value);
+        const fuel = carFuel?.value || 'Petrol';
+        const model = carModel?.value?.toLowerCase() || '';
+        const company = carCompany?.value?.toLowerCase() || '';
+
+        // Year adjustment
+        if (!isNaN(yearVal) && yearVal >= 2000 && yearVal <= 2030) {
+          const currentYear = new Date().getFullYear();
+          const age = currentYear - yearVal;
+          if (age > 0) {
+            const depreciationRate = 0.10;
+            const depreciationFactor = Math.pow(1 - depreciationRate, age);
+            basePrice = basePrice * depreciationFactor;
+          } else if (age < 0) {
+            basePrice = basePrice * 1.05;
+          }
+        }
+
+        // Kilometers adjustment
+        if (!isNaN(kmsVal) && kmsVal > 0) {
+          const kmsDeduction = Math.floor(kmsVal / 5000) * 2500;
+          basePrice = basePrice - kmsDeduction;
+        }
+
+        // Fuel type adjustment
+        if (fuel === 'Diesel') {
+          basePrice = basePrice * 1.12;
+        } else if (fuel === 'CNG') {
+          basePrice = basePrice * 0.88;
+        }
+
+        // Company premium/discount
+        const premiumBrands = ['bmw', 'mercedes', 'audi', 'porsche', 'land rover', 'jaguar', 'volvo', 'lexus'];
+        const budgetBrands = ['maruti', 'suzuki', 'tata', 'renault', 'nissan', 'datsun', 'hyundai', 'kia', 'honda', 'toyota'];
+        
+        if (premiumBrands.some(brand => company.includes(brand))) {
+          basePrice = basePrice * 1.25;
+        } else if (budgetBrands.some(brand => company.includes(brand))) {
+          basePrice = basePrice * 0.95;
+        }
+
+        // Model name adjustment
+        if (model.includes('suv') || model.includes('crossover')) {
+          basePrice = basePrice * 1.10;
+        } else if (model.includes('hatchback') || model.includes('compact')) {
+          basePrice = basePrice * 0.90;
+        } else if (model.includes('luxury') || model.includes('premium')) {
+          basePrice = basePrice * 1.20;
+        } else if (model.includes('sports') || model.includes('gt')) {
+          basePrice = basePrice * 1.30;
+        }
+
+        // Clamp price
+        if (basePrice < 80000) basePrice = 80000;
+        if (basePrice > 12000000) basePrice = 12000000;
+
+        return basePrice;
+      }
+
+      // update the displayed price
+      function updatePrice() {
+        if (!isDemoMode || !priceSpan) return;
+        
+        const price = calculatePrice();
+        if (price === null) return;
+        
+        const formattedPrice = formatPrice(price);
+        priceSpan.textContent = formattedPrice;
+
+        // Pulse effect
+        if (resultDemo) {
+          resultDemo.style.transition = 'transform 0.15s ease, box-shadow 0.2s ease';
+          resultDemo.style.transform = 'scale(0.97)';
+          resultDemo.style.boxShadow = '0 0 0 3px rgba(90, 160, 255, 0.3)';
+          
+          setTimeout(() => {
+            resultDemo.style.transform = 'scale(1)';
+            resultDemo.style.boxShadow = 'none';
+          }, 150);
+        }
+      }
+
+      // subtle pulse for other inputs
+      function pulseResult() {
+        if (!isDemoMode || !resultDemo) return;
+        
+        resultDemo.style.transition = 'transform 0.1s ease';
+        resultDemo.style.transform = 'scale(0.99)';
+        setTimeout(() => {
+          resultDemo.style.transform = 'scale(1)';
+        }, 100);
+      }
+
+      // handle form submission
+      function handleFormSubmit(e) {
+        const submitBtn = predictForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        submitBtn.disabled = true;
+        
+        if (isDemoMode) {
+          e.preventDefault();
+          setTimeout(() => {
+            updatePrice();
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+            
+            if (resultDemo) {
+              resultDemo.style.borderColor = '#4CAF50';
+              resultDemo.style.boxShadow = '0 0 20px rgba(76, 175, 80, 0.2)';
+              setTimeout(() => {
+                resultDemo.style.borderColor = 'rgba(100, 160, 255, 0.15)';
+                resultDemo.style.boxShadow = 'none';
+              }, 2000);
+            }
+          }, 800);
+        } else {
+          setTimeout(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+          }, 500);
+          
+          setTimeout(() => {
+            predictForm.submit();
+          }, 300);
+          
+          e.preventDefault();
+        }
+      }
+
+      // attach events
+      if (isDemoMode) {
+        if (carYear) carYear.addEventListener('input', updatePrice);
+        if (carKms) carKms.addEventListener('input', updatePrice);
+        if (carFuel) carFuel.addEventListener('change', updatePrice);
+        if (carModel) carModel.addEventListener('input', updatePrice);
+        if (carCompany) carCompany.addEventListener('input', updatePrice);
+
+        allInputs.forEach(inp => {
+          inp.addEventListener('input', function() {
+            if (this !== carYear && this !== carKms && 
+                this !== carFuel && this !== carModel && 
+                this !== carCompany) {
+              pulseResult();
+            }
+          });
+        });
+
+        setTimeout(updatePrice, 100);
+      }
+
+      if (predictForm) {
+        predictForm.addEventListener('submit', handleFormSubmit);
+      }
+
+    })();
+  </script>
+</body>
+</html>
